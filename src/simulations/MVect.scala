@@ -33,50 +33,42 @@ class MutableBody(
   val mass: Double,
   val radius: Double)
 
-class NBodyMutableClass(val dt: Double) {
+class NBodyMutableClass(val dt: Double, val bodies: Array[MutableBody]) {
   var cutoff = 0.8
   var sd = new MVect3(1, 0, 0) // softness direction
   var soft = 0.9
   var b1 = 100.0;
 
-  var bodies = Array(
-    new MutableBody(new MVect3(0, 5, 0), new MVect3(0, 0, 0), 1e-10, 1),
-    new MutableBody(new MVect3(0, 1, 0), new MVect3(0, 0, 0), 1e-10, 1))
-
-  var numBodies = bodies.length
+  private val accel = Array.fill(bodies.length)(new MVect3(0, 0, 0))
+  private var time = 0.0
 
   def setB(b: Double) {
     b1 = b
   }
 
-  def setBodies(bods: Array[(Double, Double)]) {
-    bodies = Array()
-    for (b <- bods) {
-      bodies :+ new MutableBody(new MVect3(b._1, b._2, 0), new MVect3(0, 0, 0), 1e-10, 1)
+  def bodiesByPositions(bods: Array[(Double, Double)]): Array[MutableBody] = {
+    for (b <- bods) yield {
+      new MutableBody(new MVect3(b._1, b._2, 0), new MVect3(0, 0, 0), 1e-10, 1)
     }
-    numBodies = bodies.length
   }
 
   def setSD(x: Double, y: Double) {
     sd = new MVect3(x, y, 0)
   }
 
-  def randomBodies(num: Int) {
-    bodies = Array.fill(num) {
+  def randomBodies(num: Int): Array[MutableBody] = {
+    Array.fill(num) {
       val r = math.random * num * 5 + 2
       val theta = (math.random - 0.5) * 1
       new MutableBody(new MVect3(r * math.sin(theta), r * math.cos(theta), 0), new MVect3(0, 0, 0), 1e-10, 1)
     }
   }
 
-  def gridBodies() {
-    bodies = (Array.tabulate(7, 7) { (i, j) =>
+  def gridBodies(): Array[MutableBody] = {
+    (Array.tabulate(7, 7) { (i, j) =>
       new MutableBody(new MVect3(i * 3 + math.random * 0.5, j * 3 + 2, 0), new MVect3(0, 0, 0), 1e-10, 1)
     }).flatten
   }
-
-  private val accel = Array.fill(numBodies)(new MVect3(0, 0, 0))
-  private var time = 0.0
 
   //  initBodies()
   //  def initBodies(): Unit = {
@@ -93,34 +85,22 @@ class NBodyMutableClass(val dt: Double) {
     }
   }
 
-  def forSim(steps: Int, collideFunc: (Int, Int) => Unit): Double = {
+  def forSim(steps: Int, singleBodyForces: Seq[Int => Unit], pairBodyForces: Seq[(Int, Int) => Unit]): Double = {
     var maxAccel = 0.0
     for (_ <- 1 to steps) {
 
-      for (i <- 0 until numBodies) {
+      for (i <- bodies.indices) {
         accel(i).zero()
-        constantAccel(i, new MVect3(0, -1, 0))
-
-        val p = new MVect3(0, 1, 0)
-        planeBounce(i, p, 0)
-        planeBounce(i, new MVect3(1, 0, 0), -50)
-        planeBounce(i, new MVect3(-1, 0, 0), -50)
-
-        //        val p1 = new MVect3(1 / sqrt(2), 1 / sqrt(2), 0)
-        //        val p2 = new MVect3(1 / (-sqrt(2)), 1 / sqrt(2), 0)
-        //        planeBounce(i, p1, 0)
-        //        planeBounce(i, p2, 0)
-
+        for (sbf <- singleBodyForces) sbf(i)
       }
 
       for {
-        i <- 0 until numBodies
-        j <- i + 1 until numBodies
+        i <- bodies.indices
+        j <- i + 1 until bodies.length
       } {
-        //gravityForce(i,j)
-        collideFunc(i, j)
+        for (pbf <- pairBodyForces) pbf(i, j)
       }
-      for (i <- 0 until numBodies) {
+      for (i <- bodies.indices) {
         val p = bodies(i)
         val a = accel(i).mag()
         if (a > maxAccel) maxAccel = a
@@ -220,5 +200,16 @@ class NBodyMutableClass(val dt: Double) {
       accel(i).y += n.y * mag
       accel(i).z += n.z * mag
     }
+  }
+
+  val n = 1
+  val kappa = 1
+  val n_z = 1
+
+  def hillsForce(i: Int): Unit = {
+    val pi = bodies(i)
+    accel(i).x += 2 * n * pi.v.y - (kappa * kappa - 4 * n * n) * pi.p.x
+    accel(i).y += -2 * pi.v.x
+    accel(i).z += -n_z * n_z * pi.p.z
   }
 }
