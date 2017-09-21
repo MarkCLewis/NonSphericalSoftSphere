@@ -77,7 +77,7 @@ object Main extends JFXApp {
       gc.translate(400, 400)
       gc.scale(5, -5)
       val timer: AnimationTimer = AnimationTimer { time =>
-        sim.forSim(100, Seq(constAccel, plane1, plane2, plane3), Seq(sim.softCollide))
+        sim.forSim(100, Seq(constAccel, plane1, plane2, plane3), Seq(sim.warpedCollide))
         gc.clearRect(-100, -100, 200, 200)
         //        gc.strokeLine(-100,-100,100,100)
         //        gc.strokeLine(-100,100,100,-100)
