@@ -1,15 +1,53 @@
 package simulations
 
-class NBodyMutableClass(val dt: Double, val bodies: Array[MutableBody]) {
+class NBodyMutableSim(val dt: Double, val bodies: Array[MutableBody]) {
+
+  private var time = 0.0
+
+  def printBodies() {
+    for (b <- bodies) {
+      println(s"${NBodyMutableSim.b1} $time ${b.p.x} ${b.p.y} ${b.p.z} ${b.v.x} ${b.v.y} ${b.v.z}")
+    }
+  }
+
+  def forSim[T](steps: Int, singleBodyForces: Seq[MutableBody => Unit], 
+          pairBodyForces: Seq[(MutableBody, MutableBody) => Unit],
+          treeInfo: Option[(Array[MutableBody] => T, (T, MutableBody) => Unit)] = None,  // None means no tree 
+          boundaryCondition: (MutableBody, Double) => Unit = (_, _) => {}): Unit = {
+    
+    for (_ <- 1 to steps) {
+      treeInfo.foreach { case (builder, accelerator) =>
+        val tree = builder(bodies)
+        for(b <- bodies.par) accelerator(tree, b)
+      }
+      
+      for (i <- bodies.indices) {
+        for (sbf <- singleBodyForces) sbf(bodies(i))
+      }
+
+      for {
+        i <- bodies.indices
+        j <- i + 1 until bodies.length
+      } {
+        for (pbf <- pairBodyForces) pbf(bodies(i), bodies(j))
+      }
+      for (i <- bodies.indices) {
+        bodies(i).kickStep(dt)
+      }
+      time += dt
+      for (i <- bodies.indices) boundaryCondition(bodies(i), time)
+    }
+  }
+
+}
+
+object NBodyMutableSim {
   val cutoff = 0.8
   val sd = new MVect3(1, 0, 0) // softness direction
   val soft = 0.9
   val b1 = 100000.0//100.0
   val damping = 10000.0
-
-  private val accel = Array.fill(bodies.length)(new MVect3(0, 0, 0))
-  private var time = 0.0
-
+  
   def bodiesByPositions(bods: Array[(Double, Double)]): Array[MutableBody] = {
     for (b <- bods) yield {
       new MutableBody(new MVect3(b._1, b._2, 0), new MVect3(0, 0, 0), 1e-10, 1)
@@ -30,53 +68,12 @@ class NBodyMutableClass(val dt: Double, val bodies: Array[MutableBody]) {
     }).flatten
   }
 
-  def printBodies() {
-    for (b <- bodies) {
-      println(s"$b1 $time ${b.p.x} ${b.p.y} ${b.p.z} ${b.v.x} ${b.v.y} ${b.v.z}")
-    }
-  }
-
-  def forSim(steps: Int, singleBodyForces: Seq[Int => Unit], pairBodyForces: Seq[(Int, Int) => Unit],
-             boundaryCondition: (Int, Double) => Unit = (_, _) => {}): Double = {
-    var maxAccel = 0.0
-    for (_ <- 1 to steps) {
-
-      for (i <- bodies.indices) {
-        accel(i).zero()
-        for (sbf <- singleBodyForces) sbf(i)
-      }
-
-      for {
-        i <- bodies.indices
-        j <- i + 1 until bodies.length
-      } {
-        for (pbf <- pairBodyForces) pbf(i, j)
-      }
-      for (i <- bodies.indices) {
-        val p = bodies(i)
-        val a = accel(i).mag()
-        if (a > maxAccel) maxAccel = a
-        p.v.x += accel(i).x * dt
-        p.v.y += accel(i).y * dt
-        p.v.z += accel(i).z * dt
-        p.p.x += p.v.x * dt
-        p.p.y += p.v.y * dt
-        p.p.z += p.v.z * dt
-      }
-      time += dt
-      for (i <- bodies.indices) boundaryCondition(i, time)
-    }
-    maxAccel
-  }
-
   def f(x: Double): Double = (x - cutoff) / (1 - cutoff) // fixxxxxxxxxxx
 
   /**
    * This is the forcing for a collision where the particle's restoring force has been softened in a particular direction.
    */
-  def softCollide(i: Int, j: Int) {
-    val pi = bodies(i)
-    val pj = bodies(j)
+  def softCollide(pi: MutableBody, pj: MutableBody): Unit = {
     val dx = pi.p.x - pj.p.x
     val dy = pi.p.y - pj.p.y
     val dz = pi.p.z - pj.p.z
@@ -90,12 +87,12 @@ class NBodyMutableClass(val dt: Double, val bodies: Array[MutableBody]) {
 
       val v = -(n dot (pi.v - pj.v))
       val mag = -softB * overlap - v * damping
-      accel(i).x -= n.x * mag // pi.mass
-      accel(i).y -= n.y * mag // pi.mass
-      accel(i).z -= n.z * mag // pi.mass
-      accel(j).x += n.x * mag // pj.mass
-      accel(j).y += n.y * mag // pj.mass
-      accel(j).z += n.z * mag // pj.mass
+      pi.a.x -= n.x * mag // pi.mass
+      pi.a.y -= n.y * mag // pi.mass
+      pi.a.z -= n.z * mag // pi.mass
+      pj.a.x += n.x * mag // pj.mass
+      pj.a.y += n.y * mag // pj.mass
+      pj.a.z += n.z * mag // pj.mass
     }
   }
 
@@ -104,9 +101,7 @@ class NBodyMutableClass(val dt: Double, val bodies: Array[MutableBody]) {
   /**
    * This is the forcing for a collision where the particle's radius is modified in a particular direction.
    */
-  def warpedCollide(i: Int, j: Int) {
-    val pi = bodies(i)
-    val pj = bodies(j)
+  def warpedCollide(pi: MutableBody, pj: MutableBody): Unit = {
     val dx = pi.p.x - pj.p.x
     val dy = pi.p.y - pj.p.y
     val dz = pi.p.z - pj.p.z
@@ -129,19 +124,17 @@ class NBodyMutableClass(val dt: Double, val bodies: Array[MutableBody]) {
 
         val v = -(n dot (pi.v - pj.v))
         val mag = -b1 * overlap - v * damping
-        accel(i).x -= n.x * mag // pi.mass
-        accel(i).y -= n.y * mag // pi.mass
-        accel(i).z -= n.z * mag // pi.mass
-        accel(j).x += n.x * mag // pj.mass
-        accel(j).y += n.y * mag // pj.mass
-        accel(j).z += n.z * mag // pj.mass
+        pi.a.x -= n.x * mag // pi.mass
+        pi.a.y -= n.y * mag // pi.mass
+        pi.a.z -= n.z * mag // pi.mass
+        pj.a.x += n.x * mag // pj.mass
+        pj.a.y += n.y * mag // pj.mass
+        pj.a.z += n.z * mag // pj.mass
       }
     }
   }
 
-  def collide(i: Int, j: Int) {
-    val pi = bodies(i)
-    val pj = bodies(j)
+  def collide(pi: MutableBody, pj: MutableBody): Unit = {
     val dx = pi.p.x - pj.p.x
     val dy = pi.p.y - pj.p.y
     val dz = pi.p.z - pj.p.z
@@ -152,49 +145,46 @@ class NBodyMutableClass(val dt: Double, val bodies: Array[MutableBody]) {
       n.normalize
       val v = -(n dot (pi.v - pj.v))
       val mag = -b1 * overlap - v * damping
-      accel(i).x -= n.x * mag // pi.mass
-      accel(i).y -= n.y * mag // pi.mass
-      accel(i).z -= n.z * mag // pi.mass
-      accel(j).x += n.x * mag // pj.mass
-      accel(j).y += n.y * mag // pj.mass
-      accel(j).z += n.z * mag // pj.mass
+      pi.a.x -= n.x * mag // pi.mass
+      pi.a.y -= n.y * mag // pi.mass
+      pi.a.z -= n.z * mag // pi.mass
+      pj.a.x += n.x * mag // pj.mass
+      pj.a.y += n.y * mag // pj.mass
+      pj.a.z += n.z * mag // pj.mass
     }
   }
 
-  def gravityForce(i: Int, j: Int) {
-    val pi = bodies(i)
-    val pj = bodies(j)
+  def gravityForce(pi: MutableBody, pj: MutableBody) {
     val dx = pi.p.x - pj.p.x
     val dy = pi.p.y - pj.p.y
     val dz = pi.p.z - pj.p.z
     val dist = math.sqrt(dx * dx + dy * dy + dz * dz)
     val magi = pj.mass / (dist * dist * dist)
-    accel(i).x -= magi * dx
-    accel(i).y -= magi * dy
-    accel(i).z -= magi * dz
+    pi.a.x -= magi * dx
+    pi.a.y -= magi * dy
+    pi.a.z -= magi * dz
     val magj = pi.mass / (dist * dist * dist)
-    accel(j).x += magj * dx
-    accel(j).y += magj * dy
-    accel(j).z += magj * dz
+    pj.a.x += magj * dx
+    pj.a.y += magj * dy
+    pj.a.z += magj * dz
   }
 
-  def constantAccel(i: Int, g: MVect3) {
-    accel(i).x += g.x
-    accel(i).y += g.y
-    accel(i).z += g.z
+  def constantAccel(pi: MutableBody, g: MVect3) {
+    pi.a.x += g.x
+    pi.a.y += g.y
+    pi.a.z += g.z
   }
 
-  def planeBounce(i: Int, n: MVect3, d: Double) {
-    val pi = bodies(i)
+  def planeBounce(pi: MutableBody, n: MVect3, d: Double) {
     val dist = (n dot pi.p) - d
     if (dist < pi.radius) {
       val overlap = pi.radius - dist
       val v = -(n dot pi.v)
       val mag = b1 * overlap + v * 10
       //val mag = 50 * overlap + v * 20
-      accel(i).x += n.x * mag
-      accel(i).y += n.y * mag
-      accel(i).z += n.z * mag
+      pi.a.x += n.x * mag
+      pi.a.y += n.y * mag
+      pi.a.z += n.z * mag
     }
   }
 
@@ -202,15 +192,13 @@ class NBodyMutableClass(val dt: Double, val bodies: Array[MutableBody]) {
   val kappa = 1
   val n_z = 1
 
-  def hillsForce(i: Int): Unit = {
-    val pi = bodies(i)
-    accel(i).x += 2 * n * pi.v.y - (kappa * kappa - 4 * n * n) * pi.p.x
-    accel(i).y += -2 * pi.v.x
-    accel(i).z += -n_z * n_z * pi.p.z
+  def hillsForce(pi: MutableBody): Unit = {
+    pi.a.x += 2 * n * pi.v.y - (kappa * kappa - 4 * n * n) * pi.p.x
+    pi.a.y += -2 * pi.v.x
+    pi.a.z += -n_z * n_z * pi.p.z
   }
 
-  def slidingBrickBoundary(i: Int, time: Double, sx: Double, sy: Double): Unit = {
-    val pi = bodies(i)
+  def slidingBrickBoundary(pi: MutableBody, time: Double, sx: Double, sy: Double): Unit = {
     val bx = sx * 0.5
     val by = sy * 0.5
     if (pi.p.y < -by) pi.p.y += sy
