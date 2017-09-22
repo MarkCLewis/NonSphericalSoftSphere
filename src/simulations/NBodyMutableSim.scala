@@ -10,30 +10,39 @@ class NBodyMutableSim(val dt: Double, val bodies: Array[MutableBody]) {
     }
   }
 
-  def forSim[T](steps: Int, singleBodyForces: Seq[MutableBody => Unit], 
-          pairBodyForces: Seq[(MutableBody, MutableBody) => Unit],
-          treeInfo: Option[(Array[MutableBody] => T, (T, MutableBody) => Unit)] = None,  // None means no tree 
-          boundaryCondition: (MutableBody, Double) => Unit = (_, _) => {}): Unit = {
-    
+  def forSim[T](steps: Int, singleBodyForces: Seq[MutableBody => Unit],
+                pairBodyForces: Seq[(MutableBody, MutableBody) => Unit],
+                treeInfo: Option[(Array[MutableBody] => T, (T, MutableBody) => Unit)] = None, // None means no tree 
+                boundaryCondition: (MutableBody, Double) => Unit = (_, _) => {}): Unit = {
+
     for (_ <- 1 to steps) {
-      treeInfo.foreach { case (builder, accelerator) =>
-        val tree = builder(bodies)
-        for(b <- bodies.par) accelerator(tree, b)
-      }
-      
-      for (i <- bodies.indices) {
-        for (sbf <- singleBodyForces) sbf(bodies(i))
+      treeInfo.foreach {
+        case (builder, accelerator) =>
+          val start = System.nanoTime()
+          val tree = builder(bodies)
+          println("Tree built in "+(System.nanoTime()-start)*1e-9)
+          val start2 = System.nanoTime()
+          for (b <- bodies.par) accelerator(tree, b)
+          println("Tree Used in "+(System.nanoTime()-start2)*1e-9)
       }
 
-      for {
-        i <- bodies.indices
-        j <- i + 1 until bodies.length
-      } {
-        for (pbf <- pairBodyForces) pbf(bodies(i), bodies(j))
+      for (b <- bodies.par) {
+        for (sbf <- singleBodyForces) sbf(b)
       }
+
+      if (pairBodyForces.nonEmpty) {
+        for {
+          i <- bodies.indices
+          j <- i + 1 until bodies.length
+        } {
+          for (pbf <- pairBodyForces) pbf(bodies(i), bodies(j))
+        }
+      }
+
       for (i <- bodies.indices) {
         bodies(i).kickStep(dt)
       }
+
       time += dt
       for (i <- bodies.indices) boundaryCondition(bodies(i), time)
     }
@@ -45,9 +54,9 @@ object NBodyMutableSim {
   val cutoff = 0.8
   val sd = new MVect3(1, 0, 0) // softness direction
   val soft = 0.9
-  val b1 = 100000.0//100.0
+  val b1 = 100000.0 //100.0
   val damping = 10000.0
-  
+
   def bodiesByPositions(bods: Array[(Double, Double)]): Array[MutableBody] = {
     for (b <- bods) yield {
       new MutableBody(new MVect3(b._1, b._2, 0), new MVect3(0, 0, 0), 1e-10, 1)
@@ -206,11 +215,10 @@ object NBodyMutableSim {
     // TODO fix x for sliding with time
     if (pi.p.x < -bx) {
       pi.p.x += sx
-      pi.v.y -= 1.5*sx
-    }
-    else if (pi.p.x > bx) {
+      pi.v.y -= 1.5 * sx
+    } else if (pi.p.x > bx) {
       pi.p.x -= sx
-      pi.v.y += 1.5*sx
+      pi.v.y += 1.5 * sx
     }
   }
 }
