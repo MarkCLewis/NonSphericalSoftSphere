@@ -52,7 +52,7 @@ class GravCollTree(p: Array[MutableBody], size: Double) {
     pi.a.x -= magi * dx
     pi.a.y -= magi * dy
     pi.a.z -= magi * dz
-    if (offx == 0.0 && offy == 0.0 && dist < pi.radius+pj.radius && pi.hashCode() < pj.hashCode()) 
+    if (dist < pi.radius+pj.radius && pi.hashCode() < pj.hashCode()) 
       collForcing(pi, pj, new MVect3(dx, dy, dz), dist)
   }
 

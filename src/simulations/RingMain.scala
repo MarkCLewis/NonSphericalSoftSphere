@@ -31,8 +31,8 @@ object RingMain extends JFXApp {
   val treeBuilder = (ps: Array[MutableBody]) => new GravCollTree(ps, cellSize)
   val treeAccel = (tree: GravCollTree, p: MutableBody) => {
     tree.addAccel(p, collide, 0.0, 0.0)
-    tree.addAccel(p, collide, 0.0, cellSize/2)
-    tree.addAccel(p, collide, 0.0, -cellSize/2)
+    tree.addAccel(p, collide, 0.0, cellSize)
+    tree.addAccel(p, collide, 0.0, -cellSize)
   }
   val bounds = (pi: MutableBody, t: Double) => slidingBrickBoundary(pi, t, cellSize, cellSize)
 
