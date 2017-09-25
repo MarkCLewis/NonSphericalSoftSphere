@@ -13,17 +13,16 @@ class GravCollTree(p: Array[MutableBody], size: Double) {
 
   val theta = 0.5
 
-  def addAccel(pi: MutableBody, collForcing: (MutableBody, MutableBody) => Unit): Unit = {
+  def addAccel(pi: MutableBody, collForcing: (MutableBody, MutableBody, MVect3, Double) => Unit, offx: Double, offy: Double): Unit = {
     def helper(n: Node): Unit = {
-      val dx = pi.p.x - n.cx
-      val dy = pi.p.y - n.cy
+      val dx = pi.p.x - (n.cx+offx)
+      val dy = pi.p.y - (n.cy+offy)
       val dist = math sqrt (dx * dx + dy * dy)
       if (dist * theta > n.size) {
-        singleAccel(pi, n.cmData.x, n.cmData.y, n.cmData.z, n.cmData.mass)
+        singleAccelCM(pi, n.cmData.x+offx, n.cmData.y+offy, n.cmData.z, n.cmData.mass)
       } else if (n.bodies.nonEmpty) {
         for (o <- n.bodies) if (o != pi) {
-          singleAccel(pi, o.p.x, o.p.y, o.p.z, o.mass)
-          if (pi.hashCode() < o.hashCode()) collForcing(pi, o)
+          singleAccelPart(pi, o, collForcing, offx, offy)
         }
       } else {
         n.children.foreach(helper)
@@ -32,7 +31,7 @@ class GravCollTree(p: Array[MutableBody], size: Double) {
     helper(root)
   }
 
-  private def singleAccel(pi: MutableBody, ox: Double, oy: Double, oz: Double, omass: Double): Unit = {
+  private def singleAccelCM(pi: MutableBody, ox: Double, oy: Double, oz: Double, omass: Double): Unit = {
     val dx = pi.p.x - ox
     val dy = pi.p.y - oy
     val dz = pi.p.z - oz
@@ -41,6 +40,20 @@ class GravCollTree(p: Array[MutableBody], size: Double) {
     pi.a.x -= magi * dx
     pi.a.y -= magi * dy
     pi.a.z -= magi * dz
+  }
+
+  private def singleAccelPart(pi: MutableBody, pj: MutableBody, collForcing: (MutableBody, MutableBody, MVect3, Double) => Unit,
+      offx: Double, offy: Double): Unit = {
+    val dx = pi.p.x - (pj.p.x+offx)
+    val dy = pi.p.y - (pj.p.y+offy)
+    val dz = pi.p.z - pj.p.z
+    val dist = math.sqrt(dx * dx + dy * dy + dz * dz)
+    val magi = pj.mass / (dist * dist * dist)
+    pi.a.x -= magi * dx
+    pi.a.y -= magi * dy
+    pi.a.z -= magi * dz
+    if (offx == 0.0 && offy == 0.0 && dist < pi.radius+pj.radius && pi.hashCode() < pj.hashCode()) 
+      collForcing(pi, pj, new MVect3(dx, dy, dz), dist)
   }
 
   private def buildTree(parts: Array[MutableBody], cx: Double, cy: Double, size: Double): Node = {
