@@ -54,6 +54,7 @@ object NBodyMutableSim {
   val cutoff = 0.8
   val sd = new MVect3(1, 0, 0) // softness direction
   val soft = 0.9
+  val dentFactor = 0.8
   val b1 = 100000.0 //100.0
   val damping = 10000.0
 
@@ -108,8 +109,6 @@ object NBodyMutableSim {
     pj.a.z += n.z * mag // pj.mass
 
   }
-
-  val dentFactor = 0.8
 
   /**
    * This is the forcing for a collision where the particle's radius is modified in a particular direction.

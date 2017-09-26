@@ -6,6 +6,7 @@ import scalafx.scene.Scene
 import scalafx.animation.AnimationTimer
 import scala.concurrent.Future
 import scalafx.application.Platform
+import scalafx.scene.paint.Color
 
 object RingMain extends JFXApp {
   val cellSize = 3e-4
@@ -52,7 +53,8 @@ object RingMain extends JFXApp {
           sim.forSim(10, Seq(hillsForce), Seq(), Some(treeBuilder -> treeAccel), bounds)
           println((System.nanoTime() - start) * 1e-9)
           Platform.runLater {
-            gc.clearRect(-100, -100, 200, 200)
+            gc.fill = Color.White
+            gc.fillRect(-1, -1, 2, 2)
             //        gc.strokeLine(-100,-100,100,100)
             //        gc.strokeLine(-100,100,100,-100)
             for (body <- sim.bodies) {
