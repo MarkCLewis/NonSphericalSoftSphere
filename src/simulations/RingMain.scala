@@ -57,6 +57,7 @@ object RingMain extends JFXApp {
             gc.fillRect(-1, -1, 2, 2)
             //        gc.strokeLine(-100,-100,100,100)
             //        gc.strokeLine(-100,100,100,-100)
+            gc.fill = Color.Black
             for (body <- sim.bodies) {
               gc.fillOval(2 * (body.p.x - body.radius) / cellSize, 2 * (body.p.y - body.radius) / cellSize, 4 * body.radius / cellSize, 4 * body.radius / cellSize)
             }
