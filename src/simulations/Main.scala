@@ -48,9 +48,27 @@ import scalafx.animation.AnimationTimer
 //}
 
 object Main extends JFXApp {
-  val sim = new NBodyMutableClass(0.0001)
+  val sim = new NBodyMutableSim(0.0001,
+      Array(new MutableBody(new MVect3(0, 5, 0), new MVect3(0, 0, 0), 1e-10, 1),
+            new MutableBody(new MVect3(0, 1, 0), new MVect3(0, 0, 0), 1e-10, 1)))
   //sim.stackBodies()
   //sim.randomBodies(10)
+  
+  import NBodyMutableSim._
+  
+  val constAccel = (pi: MutableBody) => constantAccel(pi, new MVect3(0, -1, 0))
+  
+          //        val p1 = new MVect3(1 / sqrt(2), 1 / sqrt(2), 0)
+        //        val p2 = new MVect3(1 / (-sqrt(2)), 1 / sqrt(2), 0)
+        //        planeBounce(i, p1, 0)
+        //        planeBounce(i, p2, 0)
+
+  
+  val p = new MVect3(0, 1, 0)
+  val plane1 = (pi: MutableBody) => planeBounce(pi, p, 0)
+  val plane2 = (pi: MutableBody) => planeBounce(pi, new MVect3(1, 0, 0), -50)
+  val plane3 = (pi: MutableBody) => planeBounce(pi, new MVect3(-1, 0, 0), -50)
+
 
   stage = new JFXApp.PrimaryStage {
     title = "Particle stuff"
@@ -61,7 +79,7 @@ object Main extends JFXApp {
       gc.translate(400, 400)
       gc.scale(5, -5)
       val timer: AnimationTimer = AnimationTimer { time =>
-        sim.forSim(100, sim.softCollide)
+        sim.forSim(100, Seq(constAccel, plane1, plane2, plane3), Seq(warpedCollide))
         gc.clearRect(-100, -100, 200, 200)
         //        gc.strokeLine(-100,-100,100,100)
         //        gc.strokeLine(-100,100,100,-100)
