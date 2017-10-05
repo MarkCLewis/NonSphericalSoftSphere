@@ -31,6 +31,7 @@ object RingMain extends JFXApp {
 
   val treeBuilder = (ps: Array[MutableBody]) => new GravCollTree(ps, cellSize)
   val treeAccel = (tree: GravCollTree, p: MutableBody) => {
+    val collide = new OptimizedSphereCollide(100000, 10000)
     tree.addAccel(p, collide, 0.0, 0.0)
     tree.addAccel(p, collide, 0.0, cellSize)
     tree.addAccel(p, collide, 0.0, -cellSize)
