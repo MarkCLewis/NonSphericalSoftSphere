@@ -49,8 +49,8 @@ import scalafx.animation.AnimationTimer
 
 object Main extends JFXApp {
   val sim = new NBodyMutableSim(0.0001,
-      Array(new MutableBody(new MVect3(0, 5, 0), new MVect3(0, 0, 0), 1e-10, 1),
-            new MutableBody(new MVect3(0, 1, 0), new MVect3(0, 0, 0), 1e-10, 1)))
+      Array(new MutableBody(new MVect3(0, 30, 0), new MVect3(0, 0, 0), 1e-10, 1),
+            new MutableBody(new MVect3(0, 11, 0), new MVect3(0, 0, 0), 1e-10, 1)))
   //sim.stackBodies()
   //sim.randomBodies(10)
   
@@ -78,8 +78,10 @@ object Main extends JFXApp {
       val gc = canvas.graphicsContext2D
       gc.translate(400, 400)
       gc.scale(5, -5)
+      val collideForce = Seq(new SoftenedSphereCollide(10000, 10, Array(SofteningData(new MVect3(0, 1, 0), 0.8, 0.1), 
+          SofteningData(new MVect3(0, -1, 0), 0.8, 0.1))))
       val timer: AnimationTimer = AnimationTimer { time =>
-        sim.forSim(100, Seq(constAccel, plane1, plane2, plane3), Seq(new WarpedCollide(10000, 10, new MVect3(1, 0, 0), 0.8, 0.8)))
+        sim.forSim(100, Seq(constAccel, plane1, plane2, plane3), collideForce)
         gc.clearRect(-100, -100, 200, 200)
         //        gc.strokeLine(-100,-100,100,100)
         //        gc.strokeLine(-100,100,100,-100)

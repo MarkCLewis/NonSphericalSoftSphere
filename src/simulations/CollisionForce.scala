@@ -34,11 +34,13 @@ class OptimizedSphereCollide(b1: Double, damping: Double) extends OptimizedColli
   }
 }
 
+case class SofteningData(sd: MVect3, cutoff: Double, soft: Double)
+
 /**
  * This is the forcing for a collision where the particle's restoring force has been softened in a particular direction.
  */
-class SoftenedSphereCollide(b1: Double, damping: Double, sd: MVect3, cutoff: Double, soft: Double) extends CollisionForce {
-  val opt = new OptimizedSoftenedSphereCollide(b1, damping, sd, cutoff, soft)
+class SoftenedSphereCollide(b1: Double, damping: Double, soft: Seq[SofteningData]) extends CollisionForce {
+  val opt = new OptimizedSoftenedSphereCollide(b1, damping, soft)
   def apply(pi: MutableBody, pj: MutableBody): Unit = {
     val dx = pi.p.x - pj.p.x
     val dy = pi.p.y - pj.p.y
@@ -50,17 +52,21 @@ class SoftenedSphereCollide(b1: Double, damping: Double, sd: MVect3, cutoff: Dou
   }
 }
 
-class OptimizedSoftenedSphereCollide(b1: Double, damping: Double, sd: MVect3, cutoff: Double, soft: Double) extends OptimizedCollisionForce {
-  def f(x: Double): Double = (x - cutoff) / (1 - cutoff) // fixxxxxxxxxxx
+class OptimizedSoftenedSphereCollide(b1: Double, damping: Double, soft: Seq[SofteningData]) extends OptimizedCollisionForce {
+  def f(x: Double, cutoff: Double): Double = (x - cutoff) / (1 - cutoff) // fixxxxxxxxxxx
 
   def apply(pi: MutableBody, pj: MutableBody, n: MVect3, dist: Double): Unit = {
     val overlap = (pi.radius + pj.radius) - dist
     n.normalize
-    val softFactor = sd dot n // This need to be changed to handle multiple directions and pick the right one.
-    val softB = if (softFactor > cutoff) b1 * (1 - soft * f(softFactor)) else b1
+    val closestSofti = soft.maxBy(_.sd dot n)
+    val closestSoftj = soft.minBy(_.sd dot n)
+    val softFactori = closestSofti.sd dot n // This need to be changed to handle multiple directions and pick the right one.
+    val softFactorj = closestSoftj.sd dot n // This need to be changed to handle multiple directions and pick the right one.
+    val softBi = if (softFactori > closestSofti.cutoff) b1 * (1 - closestSofti.soft * f(softFactori, closestSofti.cutoff)) else b1
+    val softBj = if (softFactorj > closestSoftj.cutoff) b1 * (1 - closestSoftj.soft * f(softFactorj, closestSoftj.cutoff)) else b1
 
     val v = -(n dot (pi.v - pj.v))
-    val mag = -softB * overlap - v * damping
+    val mag = -softBi * softBj * overlap - v * damping
     pi.a.x -= n.x * mag // pi.mass
     pi.a.y -= n.y * mag // pi.mass
     pi.a.z -= n.z * mag // pi.mass
@@ -70,11 +76,13 @@ class OptimizedSoftenedSphereCollide(b1: Double, damping: Double, sd: MVect3, cu
   }
 }
 
+case class WarpingData(sd: MVect3, cutoff: Double, dentFactor: Double)
+
 /**
  * This is the forcing for a collision where the particle's radius is modified in a particular direction.
  */
-class WarpedCollide(b1: Double, damping: Double, sd: MVect3, cutoff: Double, dentFactor: Double) extends CollisionForce {
-  val opt = new OptimizedWarpedCollide(b1, damping, sd, cutoff, dentFactor)
+class WarpedCollide(b1: Double, damping: Double, warp: Seq[WarpingData]) extends CollisionForce {
+  val opt = new OptimizedWarpedCollide(b1, damping, warp)
   def apply(pi: MutableBody, pj: MutableBody): Unit = {
     val dx = pi.p.x - pj.p.x
     val dy = pi.p.y - pj.p.y
@@ -86,17 +94,21 @@ class WarpedCollide(b1: Double, damping: Double, sd: MVect3, cutoff: Double, den
   }
 }
 
-class OptimizedWarpedCollide(b1: Double, damping: Double, sd: MVect3, cutoff: Double, dentFactor: Double) extends OptimizedCollisionForce {
+class OptimizedWarpedCollide(b1: Double, damping: Double, warp: Seq[WarpingData]) extends OptimizedCollisionForce {
   def apply(pi: MutableBody, pj: MutableBody, n: MVect3, dist: Double): Unit = {
     n.normalize
-    val iFactor = sd dot n // These need to be changed to handle multiple directions and pick the right one.
-    val jFactor = -(sd dot n)
+    val closestWarpi = warp.maxBy(_.sd dot n)
+    val closestWarpj = warp.minBy(_.sd dot n)
+    val iFactor = closestWarpi.sd dot n // These need to be changed to handle multiple directions and pick the right one.
+    val jFactor = -(closestWarpj.sd dot n)
     val pi0 = pi.radius
-    val pi1 = pi0 * dentFactor
-    val irad = if (iFactor > cutoff) pi0 + (iFactor - cutoff) / (1.0 - cutoff) * (pi1 - pi0) else pi0
+    val pi1 = pi0 * closestWarpi.dentFactor
+    val cutoffi = closestWarpi.cutoff
+    val irad = if (iFactor > cutoffi) pi0 + (iFactor - cutoffi) / (1.0 - cutoffi) * (pi1 - pi0) else pi0
     val pj0 = pj.radius
-    val pj1 = pj0 * dentFactor
-    val jrad = if (jFactor > cutoff) pj0 + (jFactor - cutoff) / (1.0 - cutoff) * (pj1 - pj0) else pj0
+    val pj1 = pj0 * closestWarpj.dentFactor
+    val cutoffj = closestWarpj.cutoff
+    val jrad = if (jFactor > cutoffj) pj0 + (jFactor - cutoffj) / (1.0 - cutoffj) * (pj1 - pj0) else pj0
 
     if (dist < irad + jrad) {
       val overlap = (irad + jrad) - dist
