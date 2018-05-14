@@ -1,4 +1,3 @@
-
 # Created by https://www.gitignore.io/api/scala,eclipse
 
 ### Eclipse ###
@@ -54,6 +53,8 @@ local.properties
 .worksheet
 
 ### Eclipse Patch ###
+
+# JDT-specific (Eclipse Java Development Tools)     
 # Eclipse Core		
 .project
 
