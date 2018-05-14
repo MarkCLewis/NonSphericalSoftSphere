@@ -20,10 +20,10 @@ class NBodyMutableSim(val dt: Double, val bodies: Array[MutableBody]) {
         case (builder, accelerator) =>
           val start = System.nanoTime()
           val tree = builder(bodies)
-          println("Tree built in " + (System.nanoTime() - start) * 1e-9)
+//          println("Tree built in " + (System.nanoTime() - start) * 1e-9)
           val start2 = System.nanoTime()
           for (b <- bodies.par) accelerator(tree, b)
-          println("Tree Used in " + (System.nanoTime() - start2) * 1e-9)
+//          println("Tree Used in " + (System.nanoTime() - start2) * 1e-9)
       }
 
       for (b <- bodies.par) {

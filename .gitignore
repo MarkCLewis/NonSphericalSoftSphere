@@ -66,3 +66,6 @@ local.properties
 *.log
 
 # End of https://www.gitignore.io/api/scala,eclipse
+
+*.out
+.nfs*
