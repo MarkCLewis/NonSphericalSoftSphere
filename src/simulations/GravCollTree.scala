@@ -1,5 +1,7 @@
 package simulations
 
+import collection.GenSeq
+
 /**
  * I'm going to use a quadtree here because I think that will work well for this particular application.
  * Things won't get too unbalanced, and I am going to stop splitting at the size of the largest particle,
@@ -56,19 +58,19 @@ class GravCollTree(p: Array[MutableBody], size: Double) {
       collForcing(pi, pj, new MVect3(dx, dy, dz), dist)
   }
 
-  private def buildTree(parts: Array[MutableBody], cx: Double, cy: Double, size: Double): Node = {
+  private def buildTree(parts: GenSeq[MutableBody], cx: Double, cy: Double, size: Double): Node = {
     if (size / 2 < maxRad) Node(emptyChildren, cx, cy, size, parts.toArray, calcCMsP(parts)) else {
-      val groups = parts.groupBy(childIndex(_, cx, cy))
+      val groups = parts.par.groupBy(childIndex(_, cx, cy))
       val s2 = size / 2
       val s4 = size / 4
-      val children = (0 to 3).map { c =>
+      val children = (0 to 3).par.map { c =>
         groups.get(c).map { ps =>
           val ccx = cx + (if ((c & 1) == 0) -s4 else s4)
           val ccy = cy + (if ((c & 2) == 0) -s4 else s4)
           buildTree(ps, ccx, ccy, s2)
         }.getOrElse(Node(emptyChildren, cx, cy, size, emptyBodies, emptyCM))
-      }
-      Node(children.toArray, cx, cy, size, emptyBodies, calcCMs(children))
+      }.toArray
+      Node(children, cx, cy, size, emptyBodies, calcCMs(children))
     }
   }
 
@@ -76,7 +78,7 @@ class GravCollTree(p: Array[MutableBody], size: Double) {
     (if (pi.p.x > cx) 1 else 0) + (if (pi.p.y > cy) 2 else 0)
   }
 
-  private def calcCMsP(parts: Array[MutableBody]): CMData = {
+  private def calcCMsP(parts: GenSeq[MutableBody]): CMData = {
     val (xsum, ysum, zsum, m) = parts.foldLeft((0.0, 0.0, 0.0, 0.0)) {
       case ((xs, ys, zs, ms), ps) =>
         (xs + ps.p.x * ps.mass, ys + ps.p.y * ps.mass, zs + ps.p.z * ps.mass, ms + ps.mass)
@@ -84,7 +86,7 @@ class GravCollTree(p: Array[MutableBody], size: Double) {
     CMData(xsum / m, ysum / m, zsum / m, m)
   }
 
-  private def calcCMs(children: IndexedSeq[Node]): CMData = {
+  private def calcCMs(children: GenSeq[Node]): CMData = {
     val (xsum, ysum, zsum, m) = children.foldLeft((0.0, 0.0, 0.0, 0.0)) {
       case (t, null) => t 
       case ((xs, ys, zs, ms), n) =>

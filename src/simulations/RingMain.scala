@@ -9,7 +9,7 @@ import scalafx.application.Platform
 import scalafx.scene.paint.Color
 
 object RingMain extends JFXApp {
-  val cellSize = 3e-4
+  val cellSize = 1e-3
   val massFactor = 10
   val minRadius = 2e-7
   val maxRadius = 2e-6
@@ -25,7 +25,7 @@ object RingMain extends JFXApp {
   }
 
   val sim = new NBodyMutableSim(0.00002,
-    Array.fill(100000)(randomOrbitBody()))
+    Array.fill(1000000)(randomOrbitBody()))
 
   import NBodyMutableSim._
 
