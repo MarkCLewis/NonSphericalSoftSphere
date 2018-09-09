@@ -69,3 +69,8 @@ local.properties
 
 *.out
 .nfs*
+*.ps
+*.pdf
+*.png
+*.svf
+

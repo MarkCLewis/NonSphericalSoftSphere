@@ -24,8 +24,18 @@ object RingMainText extends App {
   import NBodyMutableSim._
 
   val treeBuilder = (ps: Array[MutableBody]) => new GravCollTree(ps, cellSize)
+  val v1 = new MVect3(0,1,0)
+  val v2 = new MVect3(0,-1,0)
+  val v3 = new MVect3(1,0,0)
+  val v4 = new MVect3(-1,0,0)
+  v2.normalize()
   val treeAccel = (tree: GravCollTree, p: MutableBody) => {
-    val collide = new OptimizedSphereCollide(100000, 10000)
+    val collide = new OptimizedWarpedCollide(100000, 10000, Array(
+	WarpingData(v1, 0.8, 0.2),
+	WarpingData(v2, 0.8, 0.2),
+	WarpingData(v3, 0.8, 0.2),
+	WarpingData(v4, 0.8, 0.2)
+	))
     tree.addAccel(p, collide, 0.0, 0.0)
     tree.addAccel(p, collide, 0.0, cellSize)
     tree.addAccel(p, collide, 0.0, -cellSize)

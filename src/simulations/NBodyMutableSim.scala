@@ -6,7 +6,7 @@ class NBodyMutableSim(val dt: Double, val bodies: Array[MutableBody]) {
 
   def printBodies() {
     for (b <- bodies) {
-      println(s"${NBodyMutableSim.b1} $time ${b.p.x} ${b.p.y} ${b.p.z} ${b.v.x} ${b.v.y} ${b.v.z}")
+      println(s"$time ${b.p.x} ${b.p.y} ${b.p.z} ${b.v.x} ${b.v.y} ${b.v.z} ${b.radius}")
     }
   }
 
