@@ -118,7 +118,7 @@ object NBodyMutableSim {
 
   def hillsForce(pi: MutableBody): Unit = {
     pi.a.x += 2 * n * pi.v.y - (kappa * kappa - 4 * n * n) * pi.p.x
-    pi.a.y += -2 * pi.v.x
+    pi.a.y += -2 * n * pi.v.x
     pi.a.z += -n_z * n_z * pi.p.z
   }
 
